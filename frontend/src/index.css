@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { -webkit-font-smoothing: antialiased; }
+  html { font-family: 'Vazirmatn', sans-serif; }
+  body { direction: rtl; text-align: right; overflow-x: hidden; background: #f8fafc; }
+  input, textarea, select { direction: rtl; text-align: right; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+}
+@layer utilities {
+  .safe-area-pb { padding-bottom: env(safe-area-inset-bottom, 0); }
+}

@@ -1,0 +1,7 @@
+import type { TextareaHTMLAttributes } from 'react';
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+    label?: string;
+    error?: string;
+}
+export declare const Textarea: import("react").ForwardRefExoticComponent<TextareaProps & import("react").RefAttributes<HTMLTextAreaElement>>;
+export {};
