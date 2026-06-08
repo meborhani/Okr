@@ -10,7 +10,10 @@ import { OkrPeriodsModule } from './modules/okr-periods/okr-periods.module';
 import { ObjectivesModule } from './modules/objectives/objectives.module';
 import { KeyResultsModule } from './modules/key-results/key-results.module';
 import { CheckInsModule } from './modules/check-ins/check-ins.module';
+import { CheckInSessionsModule } from './modules/check-in-sessions/check-in-sessions.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { SessionMinutesModule } from './modules/session-minutes/session-minutes.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 
 @Module({
   imports: [
@@ -25,7 +28,10 @@ import { ReportsModule } from './modules/reports/reports.module';
     ObjectivesModule,
     KeyResultsModule,
     CheckInsModule,
+    CheckInSessionsModule,
     ReportsModule,
+    SessionMinutesModule,
+    TasksModule,
   ],
 })
 export class AppModule {}

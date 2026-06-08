@@ -15,7 +15,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { toast } from '@/components/ui/Toast';
 import { usersApi, rolesApi, departmentsApi, teamsApi, type UserListItem } from '@/lib/api/okr.api';
-import { Plus, Edit2, Trash2, Users } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, KeyRound } from 'lucide-react';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 const createSchema = z.object({
@@ -45,6 +45,14 @@ export function UsersPage() {
   const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
   const [editTarget, setEditTarget] = useState<UserListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
+  const [pwdTarget, setPwdTarget] = useState<UserListItem | null>(null);
+  const [newPwd, setNewPwd] = useState('');
+
+  const changePwdMut = useMutation({
+    mutationFn: () => usersApi.changePassword(pwdTarget!.id, newPwd),
+    onSuccess: () => { toast('رمز عبور با موفقیت تغییر کرد'); setPwdTarget(null); setNewPwd(''); },
+    onError: (e: Error) => toast(e.message, 'error'),
+  });
 
   const { data: res, isLoading, isError, refetch } = useQuery({
     queryKey: ['users'],
@@ -100,7 +108,7 @@ export function UsersPage() {
                         <th className="text-right px-5 py-3.5 font-semibold text-gray-500">نام</th>
                         <th className="text-right px-5 py-3.5 font-semibold text-gray-500">ایمیل</th>
                         <th className="text-right px-5 py-3.5 font-semibold text-gray-500">نقش</th>
-                        <th className="text-right px-5 py-3.5 font-semibold text-gray-500">دپارتمان</th>
+                        <th className="text-right px-5 py-3.5 font-semibold text-gray-500">بخش</th>
                         <th className="text-right px-5 py-3.5 font-semibold text-gray-500">وضعیت</th>
                         <th className="text-right px-5 py-3.5 font-semibold text-gray-500">عملیات</th>
                       </tr>
@@ -125,6 +133,10 @@ export function UsersPage() {
                               <button onClick={() => openEdit(u)}
                                 className="p-1.5 rounded-lg hover:bg-surface-100 text-gray-400 hover:text-primary-600 transition-colors">
                                 <Edit2 size={14} />
+                              </button>
+                              <button onClick={() => { setPwdTarget(u); setNewPwd(''); }}
+                                className="p-1.5 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition-colors" title="تغییر رمز">
+                                <KeyRound size={14} />
                               </button>
                               <button onClick={() => setDeleteTarget(u)}
                                 className="p-1.5 rounded-lg hover:bg-danger-50 text-gray-400 hover:text-danger-600 transition-colors">
@@ -214,6 +226,29 @@ export function UsersPage() {
           <Button variant="secondary" fullWidth onClick={() => setDeleteTarget(null)}>انصراف</Button>
         </div>
       </Modal>
+
+      {/* Password Change Modal */}
+      <Modal open={!!pwdTarget} onClose={() => setPwdTarget(null)} title="تغییر رمز عبور">
+        <p className="text-sm text-gray-500 mb-4">
+          رمز جدید برای <strong>{pwdTarget?.firstName} {pwdTarget?.lastName}</strong>
+        </p>
+        <Input
+          label="رمز عبور جدید *"
+          type="password"
+          value={newPwd}
+          onChange={(e) => setNewPwd(e.target.value)}
+          hint="حداقل ۸ کاراکتر"
+          autoFocus
+        />
+        <div className="flex gap-2 mt-4">
+          <Button fullWidth loading={changePwdMut.isPending}
+            disabled={newPwd.length < 8}
+            onClick={() => changePwdMut.mutate()}>
+            ذخیره رمز جدید
+          </Button>
+          <Button variant="secondary" fullWidth onClick={() => setPwdTarget(null)}>انصراف</Button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -231,8 +266,8 @@ interface FormModalProps {
 
 function UserFormModal({ mode, user, roles, depts, teams, onClose, onSaved }: FormModalProps) {
   const roleOptions = roles.map(r => ({ value: r.id, label: r.display_name || r.name }));
-  const deptOptions = [{ value: '', label: 'بدون دپارتمان' }, ...depts.map(d => ({ value: d.id, label: d.name }))];
-  const teamOptions = [{ value: '', label: 'بدون تیم' }, ...teams.map(t => ({ value: t.id, label: t.name }))];
+  const deptOptions = [{ value: '', label: 'بدون بخش' }, ...depts.map(d => ({ value: d.id, label: d.name }))];
+  const teamOptions = [{ value: '', label: 'بدون واحد' }, ...teams.map(t => ({ value: t.id, label: t.name }))];
 
   if (mode === 'create') {
     return <CreateForm roles={roleOptions} depts={deptOptions} teams={teamOptions} onClose={onClose} onSaved={onSaved} />;
@@ -273,8 +308,8 @@ function CreateForm({ roles, depts, teams, onClose, onSaved }: {
           hint="حداقل ۸ کاراکتر، شامل حرف بزرگ، کوچک و عدد" />
         <Select label="نقش *" options={roles} placeholder="انتخاب نقش..." error={errors.roleId?.message} {...register('roleId')} />
         <div className="grid grid-cols-2 gap-3">
-          <Select label="دپارتمان" options={depts} {...register('departmentId')} />
-          <Select label="تیم" options={teams} {...register('teamId')} />
+          <Select label="بخش" options={depts} {...register('departmentId')} />
+          <Select label="واحد" options={teams} {...register('teamId')} />
         </div>
         {mutation.isError && (
           <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-xl">{(mutation.error as Error).message}</p>
@@ -330,8 +365,8 @@ function EditForm({ user, roles, depts, teams, onClose, onSaved }: {
         <Input label="ایمیل" value={user.email} disabled className="opacity-60 cursor-not-allowed" />
         <Select label="نقش *" options={roles} error={errors.roleId?.message} {...register('roleId')} />
         <div className="grid grid-cols-2 gap-3">
-          <Select label="دپارتمان" options={depts} {...register('departmentId')} />
-          <Select label="تیم" options={teams} {...register('teamId')} />
+          <Select label="بخش" options={depts} {...register('departmentId')} />
+          <Select label="واحد" options={teams} {...register('teamId')} />
         </div>
         <Select label="وضعیت" options={statusOptions} {...register('isActive')} />
         {mutation.isError && (

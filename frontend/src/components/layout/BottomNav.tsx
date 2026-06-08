@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Target, BarChart3, Calendar } from 'lucide-react';
+import { LayoutDashboard, Target, CalendarClock, KanbanSquare } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'داشبورد' },
-  { to: '/my-okrs', icon: Target, label: 'OKR من' },
-  { to: '/periods', icon: Calendar, label: 'دوره‌ها' },
-  { to: '/reports', icon: BarChart3, label: 'گزارش' },
+  { to: '/objectives', icon: Target, label: 'اهداف' },
+  { to: '/check-in-sessions', icon: CalendarClock, label: 'چک‌این' },
+  { to: '/tasks', icon: KanbanSquare, label: 'تسک‌ها' },
 ];
 
 export function BottomNav() {

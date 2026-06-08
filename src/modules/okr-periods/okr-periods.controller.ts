@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, UseGuards, ParseUUIDPipe,
+  Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ParseUUIDPipe,
 } from '@nestjs/common';
 import { OkrPeriodsService } from './okr-periods.service';
 import { CreateOkrPeriodDto } from './dto/create-okr-period.dto';
@@ -61,5 +61,18 @@ export class OkrPeriodsController {
   @RequirePermissions('okr_periods:manage')
   async archive(@Param('id', ParseUUIDPipe) id: string) {
     return successResponse(await this.service.archive(id), 'دوره OKR آرشیو شد');
+  }
+
+  @Post(':id/reopen')
+  @RequirePermissions('okr_periods:manage')
+  async reopen(@Param('id', ParseUUIDPipe) id: string) {
+    return successResponse(await this.service.reopen(id), 'دوره OKR بازگشایی شد');
+  }
+
+  @Delete(':id')
+  @RequirePermissions('okr_periods:manage')
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    await this.service.remove(id);
+    return successResponse(null, 'دوره OKR حذف شد');
   }
 }

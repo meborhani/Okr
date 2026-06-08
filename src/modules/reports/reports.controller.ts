@@ -27,4 +27,16 @@ export class ReportsController {
   async getUserProgress(@Query('periodId') periodId?: string) {
     return successResponse(await this.service.getUserProgress(periodId));
   }
+
+  @Get('check-in-completion')
+  @RequirePermissions('reports:read')
+  async getCheckInCompletion(@Query('sessionId') sessionId?: string) {
+    return successResponse(await this.service.getCheckInCompletion(sessionId));
+  }
+
+  @Get('key-result-timeline')
+  @RequirePermissions('reports:read')
+  async getKeyResultTimeline(@Query('keyResultId') keyResultId: string) {
+    return successResponse(await this.service.getKeyResultTimeline(keyResultId));
+  }
 }

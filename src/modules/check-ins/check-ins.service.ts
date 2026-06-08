@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import * as sql from 'mssql';
 import { DatabaseService } from '../../database/database.service';
 import { KeyResultsService } from '../key-results/key-results.service';
@@ -37,16 +37,43 @@ export class CheckInsService {
     return this.findAll(keyResultId);
   }
 
-  async create(dto: CreateCheckInDto, userId: string) {
+  async create(dto: CreateCheckInDto, userId: string, isAdmin = false) {
+    if (!isAdmin) {
+      // Verify KR ownership
+      const krResult = await this.db.query<any>(
+        `SELECT owner_id FROM key_results WHERE id = @id AND deleted_at IS NULL`,
+        { id: { type: sql.UniqueIdentifier, value: dto.keyResultId } },
+      );
+      if (krResult.recordset.length && String(krResult.recordset[0].owner_id) !== String(userId)) {
+        throw new ForbiddenException('فقط می‌توانید برای نتایج کلیدی خودتان چک‌این ثبت کنید');
+      }
+      // Verify session is open
+      if (dto.sessionId) {
+        const sessResult = await this.db.query<any>(
+          `SELECT start_date, end_date FROM check_in_sessions WHERE id = @id`,
+          { id: { type: sql.UniqueIdentifier, value: dto.sessionId } },
+        );
+        if (sessResult.recordset.length) {
+          const today = new Date();
+          const start = new Date(sessResult.recordset[0].start_date);
+          const end = new Date(sessResult.recordset[0].end_date);
+          if (today < start || today > end) {
+            throw new BadRequestException('این جلسه چک‌این در حال حاضر باز نیست');
+          }
+        }
+      }
+    }
+
     await this.db.query(
-      `INSERT INTO check_ins (key_result_id, checked_by, value, note, check_date)
-       VALUES (@keyResultId, @checkedBy, @value, @note, @checkDate)`,
+      `INSERT INTO check_ins (key_result_id, checked_by, value, note, check_date, session_id)
+       VALUES (@keyResultId, @checkedBy, @value, @note, @checkDate, @sessionId)`,
       {
         keyResultId: { type: sql.UniqueIdentifier, value: dto.keyResultId },
         checkedBy: { type: sql.UniqueIdentifier, value: userId },
         value: { type: sql.Decimal(18, 4), value: dto.value },
         note: { type: sql.NVarChar, value: dto.note || null },
         checkDate: { type: sql.DateTime2, value: dto.checkDate ? new Date(dto.checkDate) : new Date() },
+        sessionId: { type: sql.UniqueIdentifier, value: dto.sessionId || null },
       },
     );
 

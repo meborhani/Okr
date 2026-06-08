@@ -1,3 +1,15 @@
+export enum CheckInSessionStatus {
+  LOCKED = 'locked',
+  OPEN = 'open',
+  CLOSED = 'closed',
+}
+
+export enum CheckInFrequency {
+  WEEKLY = 'weekly',
+  BIWEEKLY = 'biweekly',
+  MONTHLY = 'monthly',
+}
+
 export enum OkrPeriodStatus {
   DRAFT = 'draft',
   ACTIVE = 'active',

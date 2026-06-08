@@ -84,6 +84,86 @@ export class ReportsService {
     }));
   }
 
+  async getCheckInCompletion(sessionId?: string) {
+    const whereSession = sessionId ? 'AND ci.session_id = @sessionId' : '';
+    const params: Record<string, any> = sessionId
+      ? { sessionId: { type: sql.UniqueIdentifier, value: sessionId } }
+      : {};
+
+    const result = await this.db.query<any>(
+      `SELECT
+         d.id as department_id,
+         d.name as department_name,
+         COUNT(DISTINCT kr.id) as total_krs,
+         COUNT(DISTINCT ci.key_result_id) as submitted_krs
+       FROM departments d
+       LEFT JOIN users u ON u.department_id = d.id AND u.deleted_at IS NULL AND u.is_active = 1
+       LEFT JOIN objectives o ON o.owner_id = u.id AND o.deleted_at IS NULL
+       LEFT JOIN key_results kr ON kr.objective_id = o.id AND kr.deleted_at IS NULL
+       LEFT JOIN check_ins ci ON ci.key_result_id = kr.id ${whereSession}
+       WHERE d.deleted_at IS NULL
+       GROUP BY d.id, d.name
+       ORDER BY d.name`,
+      params,
+    );
+
+    return result.recordset.map((r) => ({
+      departmentId: r.department_id,
+      departmentName: r.department_name,
+      totalKrs: r.total_krs || 0,
+      submittedKrs: r.submitted_krs || 0,
+      completionPercent:
+        r.total_krs > 0 ? Math.round((r.submitted_krs / r.total_krs) * 100) : 0,
+    }));
+  }
+
+  async getKeyResultTimeline(keyResultId: string) {
+    const krResult = await this.db.query<any>(
+      `SELECT kr.id, kr.title, kr.start_value, kr.target_value, kr.unit
+       FROM key_results kr
+       WHERE kr.id = @id AND kr.deleted_at IS NULL`,
+      { id: { type: sql.UniqueIdentifier, value: keyResultId } },
+    );
+    if (!krResult.recordset.length) return null;
+    const kr = krResult.recordset[0];
+
+    // Fetch all check-ins for this KR ordered by date.
+    // Left-join session to show session title when available.
+    const ciResult = await this.db.query<any>(
+      `SELECT ci.id, ci.value, ci.check_date,
+              cs.title as session_title
+       FROM check_ins ci
+       LEFT JOIN check_in_sessions cs ON ci.session_id = cs.id
+       WHERE ci.key_result_id = @krId
+       ORDER BY ci.check_date ASC`,
+      { krId: { type: sql.UniqueIdentifier, value: keyResultId } },
+    );
+
+    const startVal = Number(kr.start_value);
+    const targetVal = Number(kr.target_value);
+    const range = targetVal - startVal;
+
+    return {
+      keyResultId: kr.id,
+      keyResultTitle: kr.title,
+      startValue: startVal,
+      targetValue: targetVal,
+      unit: kr.unit || null,
+      sessions: ciResult.recordset.map((ci: any) => ({
+        sessionId: ci.id,
+        title: ci.session_title || '',
+        gregorianDate: ci.check_date,
+        value: Number(ci.value),
+      })),
+      thresholds: {
+        p0: startVal,
+        p30: startVal + range * 0.3,
+        p70: startVal + range * 0.7,
+        p100: targetVal,
+      },
+    };
+  }
+
   async getUserProgress(periodId?: string) {
     const periodFilter = periodId ? 'AND o.period_id = @periodId' : '';
     const params: Record<string, any> = periodId

@@ -43,6 +43,16 @@ export class UsersController {
     return successResponse(user, 'کاربر با موفقیت ویرایش شد');
   }
 
+  @Patch(':id/password')
+  @RequirePermissions('users:update')
+  async changePassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('password') password: string,
+  ) {
+    await this.usersService.changePassword(id, password);
+    return successResponse(null, 'رمز عبور با موفقیت تغییر کرد');
+  }
+
   @Delete(':id')
   @RequirePermissions('users:delete')
   async remove(@Param('id', ParseUUIDPipe) id: string) {

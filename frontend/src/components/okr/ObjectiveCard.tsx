@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Trash2 } from 'lucide-react';
 import type { Objective } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -8,9 +8,10 @@ import { objectiveStatusLabel, objectiveStatusColor } from '@/lib/utils/status';
 
 interface ObjectiveCardProps {
   objective: Objective;
+  onDelete?: (e: React.MouseEvent) => void;
 }
 
-export function ObjectiveCard({ objective }: ObjectiveCardProps) {
+export function ObjectiveCard({ objective, onDelete }: ObjectiveCardProps) {
   const navigate = useNavigate();
 
   return (
@@ -26,6 +27,15 @@ export function ObjectiveCard({ objective }: ObjectiveCardProps) {
           <Badge className={objectiveStatusColor[objective.status]}>
             {objectiveStatusLabel[objective.status]}
           </Badge>
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(e); }}
+              className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+              aria-label="حذف هدف"
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
           <ChevronLeft size={16} className="text-gray-300" />
         </div>
       </div>

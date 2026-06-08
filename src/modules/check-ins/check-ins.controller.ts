@@ -22,7 +22,12 @@ export class CheckInsController {
 
   @Post()
   @RequirePermissions('check_ins:create')
-  async create(@Body() dto: CreateCheckInDto, @CurrentUser('id') userId: string) {
-    return successResponse(await this.service.create(dto, userId), 'چک‌این با موفقیت ثبت شد');
+  async create(
+    @Body() dto: CreateCheckInDto,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('permissions') permissions: string[],
+  ) {
+    const isAdmin = Array.isArray(permissions) && permissions.includes('okr_periods:manage');
+    return successResponse(await this.service.create(dto, userId, isAdmin), 'چک‌این با موفقیت ثبت شد');
   }
 }

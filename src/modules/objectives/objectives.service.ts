@@ -23,7 +23,7 @@ export class ObjectivesService {
     }
 
     const result = await this.db.query<any>(
-      `SELECT o.id, o.title, o.description, o.status, o.progress, o.weight,
+      `SELECT o.id, o.title, o.description, o.status, o.progress, o.weight, o.scope,
               o.period_id, op.title as period_title,
               o.owner_id, u.first_name + ' ' + u.last_name as owner_name,
               o.department_id, d.name as department_name,
@@ -45,7 +45,7 @@ export class ObjectivesService {
 
   async findById(id: string) {
     const result = await this.db.query<any>(
-      `SELECT o.id, o.title, o.description, o.status, o.progress, o.weight,
+      `SELECT o.id, o.title, o.description, o.status, o.progress, o.weight, o.scope,
               o.period_id, op.title as period_title,
               o.owner_id, u.first_name + ' ' + u.last_name as owner_name,
               o.department_id, d.name as department_name,
@@ -67,9 +67,9 @@ export class ObjectivesService {
 
   async create(dto: CreateObjectiveDto) {
     const result = await this.db.query<any>(
-      `INSERT INTO objectives (title, description, period_id, owner_id, department_id, team_id, parent_id, weight)
+      `INSERT INTO objectives (title, description, period_id, owner_id, department_id, team_id, parent_id, weight, scope)
        OUTPUT INSERTED.id
-       VALUES (@title, @description, @periodId, @ownerId, @departmentId, @teamId, @parentId, @weight)`,
+       VALUES (@title, @description, @periodId, @ownerId, @departmentId, @teamId, @parentId, @weight, @scope)`,
       {
         title: { type: sql.NVarChar, value: dto.title },
         description: { type: sql.NVarChar, value: dto.description || null },
@@ -79,6 +79,7 @@ export class ObjectivesService {
         teamId: { type: sql.UniqueIdentifier, value: dto.teamId || null },
         parentId: { type: sql.UniqueIdentifier, value: dto.parentId || null },
         weight: { type: sql.Decimal(5, 2), value: dto.weight || 1 },
+        scope: { type: sql.NVarChar, value: dto.scope || 'organization' },
       },
     );
     return this.findById(result.recordset[0].id);
@@ -96,6 +97,7 @@ export class ObjectivesService {
     if (dto.teamId !== undefined) { sets.push('team_id = @teamId'); params.teamId = { type: sql.UniqueIdentifier, value: dto.teamId || null }; }
     if (dto.status !== undefined) { sets.push('status = @status'); params.status = { type: sql.NVarChar, value: dto.status }; }
     if (dto.weight !== undefined) { sets.push('weight = @weight'); params.weight = { type: sql.Decimal(5, 2), value: dto.weight }; }
+    if (dto.scope !== undefined) { sets.push('scope = @scope'); params.scope = { type: sql.NVarChar, value: dto.scope }; }
 
     await this.db.query(`UPDATE objectives SET ${sets.join(', ')} WHERE id = @id`, params);
     return this.findById(id);
@@ -103,6 +105,11 @@ export class ObjectivesService {
 
   async remove(id: string) {
     await this.findById(id);
+    await this.db.query(
+      `UPDATE key_results SET deleted_at = GETUTCDATE(), updated_at = GETUTCDATE()
+       WHERE objective_id = @id AND deleted_at IS NULL`,
+      { id: { type: sql.UniqueIdentifier, value: id } },
+    );
     await this.db.query(
       `UPDATE objectives SET deleted_at = GETUTCDATE(), updated_at = GETUTCDATE() WHERE id = @id`,
       { id: { type: sql.UniqueIdentifier, value: id } },
@@ -138,6 +145,7 @@ export class ObjectivesService {
       status: o.status,
       progress: Number(o.progress),
       weight: Number(o.weight),
+      scope: o.scope || 'organization',
       periodId: o.period_id,
       periodTitle: o.period_title,
       ownerId: o.owner_id,

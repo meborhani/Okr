@@ -1,13 +1,15 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Target, BarChart3, Calendar, Users, LogOut, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Target, Calendar, Users, LogOut, CalendarClock, GitBranch, KanbanSquare, FileText } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth/auth.store';
 
 const baseItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'داشبورد' },
-  { to: '/my-okrs', icon: Target, label: 'OKR من' },
-  { to: '/objectives', icon: TrendingUp, label: 'همه اهداف' },
+  { to: '/objectives', icon: Target, label: 'اهداف و نتایج' },
+  { to: '/check-in-sessions', icon: CalendarClock, label: 'جلسات چک‌این' },
+  { to: '/minutes', icon: FileText, label: 'صورت‌جلسه‌ها' },
   { to: '/periods', icon: Calendar, label: 'دوره‌ها' },
-  { to: '/reports', icon: BarChart3, label: 'گزارش���ها' },
+  { to: '/org-chart', icon: GitBranch, label: 'چارت سازمانی' },
+  { to: '/tasks', icon: KanbanSquare, label: 'تسک‌ها' },
 ];
 
 export function Sidebar() {
@@ -23,12 +25,10 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex md:fixed md:top-0 md:bottom-0 md:right-0 md:w-60 bg-white border-l border-surface-200 flex-col z-40">
-      {/* Brand */}
       <div className="h-16 flex items-center px-5 border-b border-surface-200 flex-shrink-0">
         <span className="text-primary-600 font-bold text-lg tracking-tight">OKR Manager</span>
       </div>
 
-      {/* Nav items */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
@@ -52,7 +52,6 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* User section */}
       <div className="border-t border-surface-200 p-3 flex-shrink-0">
         <div className="flex items-center gap-2.5 px-2 py-2 mb-1">
           <div className="w-8 h-8 rounded-xl bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xs flex-shrink-0">

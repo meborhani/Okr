@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsOptional, IsNumber } from 'class-validator';
+import { IsString, IsUUID, IsOptional, IsNumber, IsIn } from 'class-validator';
 
 export class CreateObjectiveDto {
   @IsString({ message: 'عنوان هدف الزامی است' })
@@ -29,4 +29,8 @@ export class CreateObjectiveDto {
   @IsOptional()
   @IsNumber()
   weight?: number;
+
+  @IsOptional()
+  @IsIn(['organization', 'team'])
+  scope?: string;
 }

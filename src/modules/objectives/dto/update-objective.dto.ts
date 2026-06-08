@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsOptional, IsNumber, IsIn } from 'class-validator';
+import { IsString, IsUUID, IsOptional, IsNumber, IsIn, IsEnum } from 'class-validator';
 import { ObjectiveStatus } from '../../../common/enums';
 
 export class UpdateObjectiveDto {
@@ -29,4 +29,8 @@ export class UpdateObjectiveDto {
   @IsOptional()
   @IsNumber()
   weight?: number;
+
+  @IsOptional()
+  @IsIn(['organization', 'team'])
+  scope?: string;
 }

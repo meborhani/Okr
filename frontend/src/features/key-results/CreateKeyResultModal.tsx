@@ -1,57 +1,67 @@
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import { keyResultsApi } from '@/lib/api/okr.api';
+import { keyResultsApi, usersApi } from '@/lib/api/okr.api';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { toast } from '@/components/ui/Toast';
-
-const schema = z.object({
-  title: z.string().min(2, 'عنوان الزامی است'),
-  startValue: z.coerce.number({ invalid_type_error: 'عدد وارد کنید' }),
-  targetValue: z.coerce.number({ invalid_type_error: 'عدد وارد کنید' }),
-  unit: z.string().optional(),
-  weight: z.coerce.number().min(0).max(10).optional(),
-}).refine(d => d.targetValue !== d.startValue, {
-  message: 'مقدار هدف نباید با مقدار شروع برابر باشد',
-  path: ['targetValue'],
-});
-
-type FormData = z.infer<typeof schema>;
 
 interface Props {
   open: boolean;
   onClose: () => void;
   objectiveId: string;
+  objectiveScope?: 'organization' | 'team';
 }
 
-export function CreateKeyResultModal({ open, onClose, objectiveId }: Props) {
+export function CreateKeyResultModal({ open, onClose, objectiveId, objectiveScope = 'organization' }: Props) {
   const qc = useQueryClient();
   const { user } = useAuthStore();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { startValue: 0, targetValue: 100, weight: 1 },
+  const [title, setTitle] = useState('');
+  const [startValue, setStartValue] = useState('0');
+  const [targetValue, setTargetValue] = useState('100');
+  const [unit, setUnit] = useState('');
+  const [weight, setWeight] = useState('1');
+  const [ownerId, setOwnerId] = useState(user?.id || '');
+
+  const { data: usersResp } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => usersApi.getAll(1, 200),
+    enabled: objectiveScope === 'organization',
   });
+  const allUsers = usersResp?.data || [];
+  const filteredOwners = objectiveScope === 'organization'
+    ? allUsers.filter(u => u.roleName !== 'employee')
+    : [];
+
+  const ownerOptions = filteredOwners.map(u => ({
+    value: u.id, label: `${u.firstName} ${u.lastName} (${u.roleDisplayName || u.roleName})`,
+  }));
 
   const mutation = useMutation({
-    mutationFn: (d: FormData) => keyResultsApi.create({
-      title: d.title,
-      objectiveId,
-      ownerId: user!.id,
-      startValue: d.startValue,
-      targetValue: d.targetValue,
-      unit: d.unit || undefined,
-      weight: d.weight,
-    }),
+    mutationFn: () => {
+      if (!title.trim()) throw new Error('عنوان الزامی است');
+      const sv = parseFloat(startValue);
+      const tv = parseFloat(targetValue);
+      if (isNaN(sv) || isNaN(tv)) throw new Error('مقادیر عدد وارد کنید');
+      if (sv === tv) throw new Error('مقدار هدف نباید با مقدار شروع برابر باشد');
+      return keyResultsApi.create({
+        title: title.trim(),
+        objectiveId,
+        ownerId: ownerId || user!.id,
+        startValue: sv,
+        targetValue: tv,
+        unit: unit.trim() || undefined,
+        weight: parseFloat(weight) || 1,
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['key-results', 'by-objective', objectiveId] });
       qc.invalidateQueries({ queryKey: ['objectives', objectiveId] });
       toast('نتیجه کلیدی با موفقیت ایجاد شد');
-      reset();
+      setTitle(''); setStartValue('0'); setTargetValue('100'); setUnit(''); setWeight('1');
       onClose();
     },
     onError: (e: Error) => toast(e.message, 'error'),
@@ -59,51 +69,38 @@ export function CreateKeyResultModal({ open, onClose, objectiveId }: Props) {
 
   return (
     <Modal open={open} onClose={onClose} title="افزودن نتیجه کلیدی">
-      <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="space-y-4">
+      <div className="space-y-4">
         <Input
           label="عنوان نتیجه کلیدی *"
           placeholder="مثال: افزایش نرخ تبدیل به ۵٪"
-          error={errors.title?.message}
-          {...register('title')}
+          value={title}
+          onChange={e => setTitle(e.target.value)}
         />
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="مقدار شروع *"
-            type="number"
-            error={errors.startValue?.message}
-            {...register('startValue')}
-          />
-          <Input
-            label="مقدار هدف *"
-            type="number"
-            error={errors.targetValue?.message}
-            {...register('targetValue')}
-          />
+          <Input label="مقدار شروع *" type="number" value={startValue} onChange={e => setStartValue(e.target.value)} />
+          <Input label="مقدار هدف *" type="number" value={targetValue} onChange={e => setTargetValue(e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="واحد اندازه‌گیری"
-            placeholder="مثال: درصد، عدد، ریال"
-            error={errors.unit?.message}
-            {...register('unit')}
-          />
-          <Input
-            label="وزن"
-            type="number"
-            step="0.1"
-            error={errors.weight?.message}
-            {...register('weight')}
-          />
+          <Input label="واحد اندازه‌گیری" placeholder="درصد، عدد، ریال" value={unit} onChange={e => setUnit(e.target.value)} />
+          <Input label="وزن" type="number" step="0.1" value={weight} onChange={e => setWeight(e.target.value)} />
         </div>
+        {objectiveScope === 'organization' && ownerOptions.length > 0 && (
+          <Select
+            label="مالک KR (CEO یا مدیر بخش)"
+            options={[{ value: user?.id || '', label: 'خودم' }, ...ownerOptions]}
+            value={ownerId}
+            onChange={e => setOwnerId(e.target.value)}
+          />
+        )}
         {mutation.isError && (
           <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-xl">
             {(mutation.error as Error).message}
           </p>
         )}
-        <Button type="submit" fullWidth size="lg" loading={mutation.isPending}>
+        <Button fullWidth size="lg" loading={mutation.isPending} onClick={() => mutation.mutate()}>
           ایجاد نتیجه کلیدی
         </Button>
-      </form>
+      </div>
     </Modal>
   );
 }

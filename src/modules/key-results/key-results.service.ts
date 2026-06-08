@@ -13,7 +13,7 @@ export class KeyResultsService {
     private objectivesService: ObjectivesService,
   ) {}
 
-  async findAll(objectiveId?: string, ownerId?: string) {
+  async findAll(objectiveId?: string, ownerId?: string, periodId?: string) {
     let where = 'kr.deleted_at IS NULL';
     const params: Record<string, any> = {};
 
@@ -24,6 +24,10 @@ export class KeyResultsService {
     if (ownerId) {
       where += ' AND kr.owner_id = @ownerId';
       params.ownerId = { type: sql.UniqueIdentifier, value: ownerId };
+    }
+    if (periodId) {
+      where += ' AND o.period_id = @periodId';
+      params.periodId = { type: sql.UniqueIdentifier, value: periodId };
     }
 
     const result = await this.db.query<any>(
@@ -145,12 +149,20 @@ export class KeyResultsService {
     const kr = await this.findById(id);
     const progress = calculateProgress(value, kr.startValue, kr.targetValue);
 
+    let status: string;
+    if (progress >= 100) status = 'completed';
+    else if (progress >= 70) status = 'on_track';
+    else if (progress >= 30) status = 'at_risk';
+    else if (progress > 0) status = 'off_track';
+    else status = 'not_started';
+
     await this.db.query(
-      `UPDATE key_results SET current_value = @value, progress = @progress, updated_at = GETUTCDATE() WHERE id = @id`,
+      `UPDATE key_results SET current_value = @value, progress = @progress, status = @status, updated_at = GETUTCDATE() WHERE id = @id`,
       {
         id: { type: sql.UniqueIdentifier, value: id },
         value: { type: sql.Decimal(18, 4), value },
         progress: { type: sql.Decimal(5, 2), value: progress },
+        status: { type: sql.NVarChar, value: status },
       },
     );
 

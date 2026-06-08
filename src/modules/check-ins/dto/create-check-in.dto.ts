@@ -14,4 +14,8 @@ export class CreateCheckInDto {
   @IsOptional()
   @IsDateString()
   checkDate?: string;
+
+  @IsOptional()
+  @IsUUID('4')
+  sessionId?: string;
 }

@@ -1,4 +1,5 @@
-import { IsString, IsInt, IsDateString, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsInt, IsDateString, IsOptional, IsEnum, Min, Max } from 'class-validator';
+import { CheckInFrequency } from '../../../common/enums';
 
 export class CreateOkrPeriodDto {
   @IsString({ message: 'عنوان دوره الزامی است' })
@@ -23,4 +24,8 @@ export class CreateOkrPeriodDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsEnum(CheckInFrequency)
+  frequency?: CheckInFrequency;
 }

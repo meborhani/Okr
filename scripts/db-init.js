@@ -37,17 +37,17 @@ async function createDatabaseIfNotExists() {
   }
 }
 
-async function runMigration() {
+async function runMigrations() {
   const pool = await sql.connect(config);
   try {
-    const migrationPath = path.join(__dirname, '..', 'migrations', '0001_init.sql');
-    const sql_content = fs.readFileSync(migrationPath, 'utf8');
+    const migrationsDir = path.join(__dirname, '..', 'migrations');
+    const files = fs.readdirSync(migrationsDir)
+      .filter(f => f.endsWith('.sql'))
+      .sort();
 
-    // Split by GO statements or run as batches
-    const batches = sql_content.split(/\bGO\b/i).map(b => b.trim()).filter(b => b.length > 0);
-
-    if (batches.length <= 1) {
-      // No GO separators, split by CREATE TABLE / ALTER TABLE / CREATE INDEX statements
+    for (const file of files) {
+      console.log(`Running migration: ${file}`);
+      const sql_content = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
       const statements = splitSqlStatements(sql_content);
       for (const stmt of statements) {
         if (stmt.trim()) {
@@ -57,33 +57,21 @@ async function runMigration() {
             if (err.message && (
               err.message.includes('already an object') ||
               err.message.includes('already exists') ||
-              err.message.includes('Duplicate')
+              err.message.includes('Duplicate key') ||
+              err.message.includes('Column already exists') ||
+              err.message.includes('Invalid column name') ||
+              err.message.includes('Could not create constraint') ||
+              err.message.includes('Column names in each table must be unique')
             )) {
-              console.log(`  Skipped (already exists): ${stmt.substring(0, 60).replace(/\n/g, ' ')}...`);
+              console.log(`  Skipped (already applied): ${stmt.substring(0, 60).replace(/\n/g, ' ')}...`);
             } else {
               throw err;
             }
           }
         }
       }
-    } else {
-      for (const batch of batches) {
-        try {
-          await pool.request().query(batch);
-        } catch (err) {
-          if (err.message && (
-            err.message.includes('already an object') ||
-            err.message.includes('already exists')
-          )) {
-            console.log(`  Skipped (already exists)`);
-          } else {
-            throw err;
-          }
-        }
-      }
+      console.log(`  ${file} completed.`);
     }
-
-    console.log('Migration 0001_init.sql completed successfully.');
   } finally {
     await pool.close();
   }
@@ -113,7 +101,7 @@ async function main() {
   console.log('Starting database initialization...');
   try {
     await createDatabaseIfNotExists();
-    await runMigration();
+    await runMigrations();
     console.log('Database initialization completed successfully.');
     process.exit(0);
   } catch (err) {

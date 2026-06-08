@@ -22,6 +22,8 @@ apiClient.interceptors.response.use(
       localStorage.removeItem('access_token');
       window.location.href = '/login';
     }
+    const serverMsg = error.response?.data?.message;
+    if (serverMsg) return Promise.reject(new Error(serverMsg));
     return Promise.reject(error);
   },
 );
@@ -46,6 +48,12 @@ export async function apiPatch<T>(url: string, data?: unknown): Promise<T> {
 
 export async function apiDelete<T>(url: string): Promise<T> {
   const res = await apiClient.delete<ApiResponse<T>>(url);
+  if (!res.data.success) throw new Error(res.data.message);
+  return res.data.data as T;
+}
+
+export async function apiPut<T>(url: string, data?: unknown): Promise<T> {
+  const res = await apiClient.put<ApiResponse<T>>(url, data);
   if (!res.data.success) throw new Error(res.data.message);
   return res.data.data as T;
 }

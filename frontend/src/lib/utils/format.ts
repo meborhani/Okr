@@ -2,6 +2,16 @@ export function formatDate(dateStr?: string | null): string {
   if (!dateStr) return '—';
   try {
     const d = new Date(dateStr);
+    return d.toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+export function formatDateShort(dateStr?: string | null): string {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
     return d.toLocaleDateString('fa-IR');
   } catch {
     return dateStr;
@@ -12,7 +22,7 @@ export function formatDateTime(dateStr?: string | null): string {
   if (!dateStr) return '—';
   try {
     const d = new Date(dateStr);
-    return d.toLocaleString('fa-IR');
+    return d.toLocaleString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   } catch {
     return dateStr;
   }

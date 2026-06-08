@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Trash2, Edit2 } from 'lucide-react';
 import type { KeyResult } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -8,9 +8,11 @@ import { krStatusLabel, krStatusColor, krProgressColor } from '@/lib/utils/statu
 
 interface KeyResultCardProps {
   keyResult: KeyResult;
+  onDelete?: (e: React.MouseEvent) => void;
+  onEdit?: (e: React.MouseEvent) => void;
 }
 
-export function KeyResultCard({ keyResult }: KeyResultCardProps) {
+export function KeyResultCard({ keyResult, onDelete, onEdit }: KeyResultCardProps) {
   const navigate = useNavigate();
 
   return (
@@ -21,6 +23,24 @@ export function KeyResultCard({ keyResult }: KeyResultCardProps) {
           <Badge className={krStatusColor[keyResult.status]}>
             {krStatusLabel[keyResult.status]}
           </Badge>
+          {onEdit && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(e); }}
+              className="p-1 text-gray-300 hover:text-primary-500 transition-colors"
+              aria-label="ویرایش نتیجه کلیدی"
+            >
+              <Edit2 size={14} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(e); }}
+              className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+              aria-label="حذف نتیجه کلیدی"
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
           <ChevronLeft size={16} className="text-gray-300" />
         </div>
       </div>

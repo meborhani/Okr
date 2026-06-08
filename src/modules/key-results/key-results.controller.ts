@@ -17,8 +17,12 @@ export class KeyResultsController {
 
   @Get()
   @RequirePermissions('key_results:read')
-  async findAll(@Query('objectiveId') objectiveId?: string, @Query('ownerId') ownerId?: string) {
-    return successResponse(await this.service.findAll(objectiveId, ownerId));
+  async findAll(
+    @Query('objectiveId') objectiveId?: string,
+    @Query('ownerId') ownerId?: string,
+    @Query('periodId') periodId?: string,
+  ) {
+    return successResponse(await this.service.findAll(objectiveId, ownerId, periodId));
   }
 
   @Get(':id')

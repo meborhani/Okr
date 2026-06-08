@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ClipboardList } from 'lucide-react';
+import { Plus, ClipboardList, Trash2 } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -11,12 +12,32 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { krStatusLabel, krStatusColor, krProgressColor } from '@/lib/utils/status';
 import { formatDate, formatDateTime } from '@/lib/utils/format';
 import { useKeyResult, useKeyResultCheckIns } from './useKeyResults';
+import { keyResultsApi } from '@/lib/api/okr.api';
+import { useAuthStore } from '@/lib/auth/auth.store';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from '@/components/ui/Toast';
 
 export function KeyResultDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { user } = useAuthStore();
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  const canDelete = user?.permissions?.includes('key_results:delete') ?? false;
+
   const { data: kr, isLoading, isError, refetch } = useKeyResult(id!);
   const { data: checkIns, isLoading: checkInsLoading } = useKeyResultCheckIns(id!);
+
+  const deleteMut = useMutation({
+    mutationFn: () => keyResultsApi.remove(id!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['objectives'] });
+      toast('نتیجه کلیدی حذف شد');
+      navigate(-1);
+    },
+    onError: (e: Error) => toast(e.message, 'error'),
+  });
 
   if (isLoading) return <PageSpinner />;
   if (isError) return <ErrorState onRetry={refetch} />;
@@ -28,13 +49,17 @@ export function KeyResultDetailPage() {
         title="نتیجه کلیدی"
         showBack
         right={
-          <Button
-            size="sm"
-            onClick={() => navigate(`/check-in/${id}`)}
-          >
-            <Plus size={16} />
-            چک‌این
-          </Button>
+          <div className="flex items-center gap-2">
+            {canDelete && (
+              <button onClick={() => setDeleteConfirm(true)} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                <Trash2 size={18} />
+              </button>
+            )}
+            <Button size="sm" onClick={() => navigate(`/check-in/${id}`)}>
+              <Plus size={16} />
+              چک‌این
+            </Button>
+          </div>
         }
       />
 
@@ -141,6 +166,21 @@ export function KeyResultDetailPage() {
       >
         <Plus size={24} />
       </button>
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="font-bold text-gray-900 text-lg mb-2">حذف نتیجه کلیدی</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              نتیجه کلیدی <span className="font-semibold">«{kr?.title}»</span> حذف شود؟
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setDeleteConfirm(false)} disabled={deleteMut.isPending}>انصراف</Button>
+              <Button variant="danger" loading={deleteMut.isPending} onClick={() => deleteMut.mutate()}>حذف</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

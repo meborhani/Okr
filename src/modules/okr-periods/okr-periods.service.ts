@@ -5,15 +5,19 @@ import * as sql from 'mssql';
 import { DatabaseService } from '../../database/database.service';
 import { CreateOkrPeriodDto } from './dto/create-okr-period.dto';
 import { UpdateOkrPeriodDto } from './dto/update-okr-period.dto';
-import { OkrPeriodStatus } from '../../common/enums';
+import { OkrPeriodStatus, CheckInFrequency } from '../../common/enums';
+import { CheckInSessionsService } from '../check-in-sessions/check-in-sessions.service';
 
 @Injectable()
 export class OkrPeriodsService {
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private db: DatabaseService,
+    private checkInSessionsService: CheckInSessionsService,
+  ) {}
 
   async findAll() {
     const result = await this.db.query<any>(
-      `SELECT id, title, year, quarter, start_date, end_date, status, description, created_at
+      `SELECT id, title, year, quarter, start_date, end_date, status, frequency, description, created_at
        FROM okr_periods WHERE deleted_at IS NULL ORDER BY year DESC, quarter DESC`,
     );
     return result.recordset.map(this.mapPeriod);
@@ -21,7 +25,7 @@ export class OkrPeriodsService {
 
   async findActive() {
     const result = await this.db.query<any>(
-      `SELECT id, title, year, quarter, start_date, end_date, status, description, created_at
+      `SELECT id, title, year, quarter, start_date, end_date, status, frequency, description, created_at
        FROM okr_periods WHERE status = 'active' AND deleted_at IS NULL`,
     );
     return result.recordset.map(this.mapPeriod);
@@ -29,7 +33,7 @@ export class OkrPeriodsService {
 
   async findById(id: string) {
     const result = await this.db.query<any>(
-      `SELECT id, title, year, quarter, start_date, end_date, status, description,
+      `SELECT id, title, year, quarter, start_date, end_date, status, frequency, description,
               created_at, updated_at, created_by
        FROM okr_periods WHERE id = @id AND deleted_at IS NULL`,
       { id: { type: sql.UniqueIdentifier, value: id } },
@@ -50,10 +54,12 @@ export class OkrPeriodsService {
       throw new ConflictException(`دوره فصل ${dto.quarter} سال ${dto.year} قبلاً تعریف شده است`);
     }
 
+    const frequency = dto.frequency || CheckInFrequency.WEEKLY;
+
     const result = await this.db.query<any>(
-      `INSERT INTO okr_periods (title, year, quarter, start_date, end_date, description, created_by)
+      `INSERT INTO okr_periods (title, year, quarter, start_date, end_date, description, frequency, created_by)
        OUTPUT INSERTED.id
-       VALUES (@title, @year, @quarter, @startDate, @endDate, @description, @createdBy)`,
+       VALUES (@title, @year, @quarter, @startDate, @endDate, @description, @frequency, @createdBy)`,
       {
         title: { type: sql.NVarChar, value: dto.title },
         year: { type: sql.Int, value: dto.year },
@@ -61,10 +67,21 @@ export class OkrPeriodsService {
         startDate: { type: sql.DateTime2, value: new Date(dto.startDate) },
         endDate: { type: sql.DateTime2, value: new Date(dto.endDate) },
         description: { type: sql.NVarChar, value: dto.description || null },
+        frequency: { type: sql.NVarChar, value: frequency },
         createdBy: { type: sql.UniqueIdentifier, value: userId },
       },
     );
-    return this.findById(result.recordset[0].id);
+
+    const periodId = result.recordset[0].id;
+
+    await this.checkInSessionsService.generateSessions(
+      periodId,
+      new Date(dto.startDate),
+      new Date(dto.endDate),
+      frequency,
+    );
+
+    return this.findById(periodId);
   }
 
   async update(id: string, dto: UpdateOkrPeriodDto) {
@@ -121,6 +138,52 @@ export class OkrPeriodsService {
     return this.findById(id);
   }
 
+  async reopen(id: string) {
+    const period = await this.findById(id);
+    if (period.status !== OkrPeriodStatus.CLOSED) {
+      throw new BadRequestException('فقط دوره‌های بسته شده قابل بازگشایی هستند');
+    }
+    await this.db.query(
+      `UPDATE okr_periods SET status = 'active', updated_at = GETUTCDATE() WHERE id = @id`,
+      { id: { type: sql.UniqueIdentifier, value: id } },
+    );
+    return this.findById(id);
+  }
+
+  async remove(id: string) {
+    await this.findById(id);
+    const idParam = { id: { type: sql.UniqueIdentifier, value: id } };
+    // 1. Null tasks.minutes_id for tasks tied to minutes of these sessions
+    await this.db.query(
+      `UPDATE tasks SET minutes_id = NULL
+       WHERE minutes_id IN (
+         SELECT sm.id FROM session_minutes sm
+         INNER JOIN check_in_sessions cs ON sm.session_id = cs.id
+         WHERE cs.period_id = @id
+       )`,
+      idParam,
+    );
+    // 2. Delete session_minutes for these sessions
+    await this.db.query(
+      `DELETE FROM session_minutes
+       WHERE session_id IN (SELECT id FROM check_in_sessions WHERE period_id = @id)`,
+      idParam,
+    );
+    // 3. Null check_ins.session_id for these sessions
+    await this.db.query(
+      `UPDATE check_ins SET session_id = NULL
+       WHERE session_id IN (SELECT id FROM check_in_sessions WHERE period_id = @id)`,
+      idParam,
+    );
+    // 4. Hard-delete sessions
+    await this.db.query(`DELETE FROM check_in_sessions WHERE period_id = @id`, idParam);
+    // 5. Soft-delete the period
+    await this.db.query(
+      `UPDATE okr_periods SET deleted_at = GETUTCDATE() WHERE id = @id`,
+      idParam,
+    );
+  }
+
   private mapPeriod(p: any) {
     return {
       id: p.id,
@@ -130,6 +193,7 @@ export class OkrPeriodsService {
       startDate: p.start_date,
       endDate: p.end_date,
       status: p.status,
+      frequency: p.frequency || 'weekly',
       description: p.description,
       createdBy: p.created_by,
       createdAt: p.created_at,

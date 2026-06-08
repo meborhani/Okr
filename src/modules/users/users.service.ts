@@ -18,6 +18,7 @@ export class UsersService {
     const offset = (page - 1) * limit;
     const result = await this.db.query<any>(
       `SELECT u.id, u.email, u.first_name, u.last_name, u.is_active,
+              u.role_id, u.department_id, u.team_id,
               u.last_login_at, u.created_at,
               r.name as role_name, r.display_name as role_display_name,
               d.name as department_name, t.name as team_name
@@ -155,6 +156,18 @@ export class UsersService {
     if (!result.recordset.length) {
       throw new BadRequestException('نقش انتخاب شده معتبر نیست');
     }
+  }
+
+  async changePassword(id: string, newPassword: string): Promise<void> {
+    await this.findById(id);
+    const hash = await bcrypt.hash(newPassword, 12);
+    await this.db.query(
+      `UPDATE users SET password_hash = @hash, updated_at = GETUTCDATE() WHERE id = @id`,
+      {
+        id: { type: sql.UniqueIdentifier, value: id },
+        hash: { type: sql.NVarChar, value: hash },
+      },
+    );
   }
 
   private mapUser(u: any) {
